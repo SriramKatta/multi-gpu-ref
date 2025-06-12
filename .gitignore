@@ -17,3 +17,5 @@ executable*
 simdata
 SLURM_OUT_FILES
 *olddata*
+
+.vscode
