@@ -8,13 +8,13 @@
 #include "utils.h"
 
 // TODO: commented out since my personal machine doesn't have cuda aware mpi :(
-// #ifndef SKIP_CUDA_AWARENESS_CHECK
-// #include <mpi-ext.h>
-// #if !defined(MPIX_CUDA_AWARE_SUPPORT) || !MPIX_CUDA_AWARE_SUPPORT
-// #error "The used MPI Implementation does not have CUDA-aware support or CUDA-aware \
-// support can't be determined. Define SKIP_CUDA_AWARENESS_CHECK to skip this check."
-// #endif
-// #endif
+#ifndef SKIP_CUDA_AWARENESS_CHECK
+#include <mpi-ext.h>
+#if !defined(MPIX_CUDA_AWARE_SUPPORT) || !MPIX_CUDA_AWARE_SUPPORT
+#error "The used MPI Implementation does not have CUDA-aware support or CUDA-aware \
+support can't be determined. Define SKIP_CUDA_AWARENESS_CHECK to skip this check."
+#endif
+#endif
 
 constexpr int number_of_warmups = 10;
 constexpr int maxIt = 1000;
