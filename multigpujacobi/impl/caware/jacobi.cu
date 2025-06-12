@@ -90,8 +90,7 @@ int main(int argc, char *argv[])
 
   cudaStream_t compute_stream;
   CUDA_CALL(cudaStreamCreate(&compute_stream));
-  cudaEvent_t compute_done;
-  CUDA_CALL(cudaEventCreateWithFlags(&compute_done, cudaEventDisableTiming));
+
   const int top_pe = (rank + 1) % nranks;
   const int bot_pe = (rank + nranks - 1) % nranks;
 
@@ -112,14 +111,13 @@ int main(int argc, char *argv[])
 
     nvtxRangePushA("Apply_stencil");
     launch_jacobi_kernel(a_new, a, iy_start, iy_end, N, compute_stream);
+    CUDA_CALL(cudaStreamSynchronize(compute_stream));
     nvtxRangePop();
-    CUDA_CALL(cudaEventRecord(compute_done, compute_stream));
 
-    CUDA_CALL(cudaEventSynchronize(compute_done));
     nvtxRangePushA("HALO_Exchange");
     Halo_exchange(a_new, a, N, top_pe, iy_end, bot_pe, iy_start);
     nvtxRangePop();
-
+    
     std::swap(a, a_new);
   }
   CUDA_CALL(cudaDeviceSynchronize());
@@ -135,7 +133,6 @@ int main(int argc, char *argv[])
   // freeing everything
   CUDA_CALL(cudaFree(a));
   CUDA_CALL(cudaFree(a_new));
-  CUDA_CALL(cudaEventDestroy(compute_done));
   CUDA_CALL(cudaStreamDestroy(compute_stream));
 
   MPI_Finalize();

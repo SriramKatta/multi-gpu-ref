@@ -117,14 +117,14 @@ int main(int argc, char *argv[])
     launch_jacobi_kernel(a_new, a, iy_start + 1, iy_end - 1, N, inner_stream);
     launch_jacobi_kernel(a_new, a, iy_start, iy_start + 1, N, edge_stream);
     launch_jacobi_kernel(a_new, a, iy_end - 1, iy_end, N, edge_stream);
+    CUDA_CALL(cudaStreamSynchronize(edge_stream));
     nvtxRangePop();
 
-    CUDA_CALL(cudaStreamSynchronize(edge_stream));
     nvtxRangePushA("HALO_Exchange");
     Halo_exchange(a_new, a, N, top_pe, iy_end, bot_pe, iy_start);
-    nvtxRangePop();
-
     CUDA_CALL(cudaStreamSynchronize(inner_stream));
+    nvtxRangePop();
+    
     std::swap(a, a_new);
   }
   CUDA_CALL(cudaDeviceSynchronize());
