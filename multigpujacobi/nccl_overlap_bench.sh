@@ -24,11 +24,11 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$NCCL_HOME/lib
 [ ! -d simdata ] && mkdir simdata
 resfile=./simdata/${SLURM_JOB_ID}_caware
 
-perfexemain="./executable_perf/jacobi_caware_overlap"
-profexemain="./executable_prof/jacobi_caware_overlap"
+perfexemain="./executable_perf/jacobi_NCCL_overlap"
+profexemain="./executable_prof/jacobi_NCCL_overlap"
 
-perfexe="./executable_perf/jacobi_caware_overlap_${SLURM_JOB_ID}"
-profexe="./executable_prof/jacobi_caware_overlap_${SLURM_JOB_ID}"
+perfexe="./executable_perf/jacobi_NCCL_overlap_${SLURM_JOB_ID}"
+profexe="./executable_prof/jacobi_NCCL_overlap_${SLURM_JOB_ID}"
 
 cp $perfexemain $perfexe
 cp $profexemain $profexe
@@ -39,7 +39,7 @@ for np in $(seq 1 $gpgpucount); do
 done
 
 nsys profile --trace=mpi,cuda,nvtx --force-overwrite true \
-    -o ./simdata/${SLURM_JOB_ID}_jacobi_caware_overlap \
+    -o ./simdata/${SLURM_JOB_ID}_jacobi_NCCL_overlap \
     likwid-mpirun -np $gpgpucount -nperdomain M:1 \
     $profexe 4096
 
