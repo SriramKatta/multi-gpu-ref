@@ -134,7 +134,7 @@ int main(int argc, char *argv[])
 
   if (rank == 0)
   {
-    printf("NP %3d | MLUPs %12d | perf %7.3f MLUPS/s\n", nranks, (N * N), static_cast<double>(N * N) / maxdur / 1e6);
+    printf("NP %3d | LUPs %12d | perf %7.3f MLUPS/s\n", nranks, (N * N), static_cast<double>(N * N) / maxdur / 1e6);
   }
 
   // freeing everything
