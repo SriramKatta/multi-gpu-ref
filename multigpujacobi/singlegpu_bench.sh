@@ -14,7 +14,7 @@ module load cuda nvhpc
 [ ! -d simdata ] && mkdir simdata
 resfile=./simdata/${SLURM_JOB_ID}_singlegpu
 
-for i in {1..40}; do
+for i in {1..30}; do
     srun ./executable_perf/jacobi_single $(echo "1024*$i" | bc) | tee -a $resfile
 done
 

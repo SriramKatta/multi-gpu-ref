@@ -101,7 +101,7 @@ int main(int argc, char *argv[])
   auto end = Time::now();
   double maxdur = std::chrono::duration<double, mintime>(end - start).count() / mintime::den / maxIt;
 
-  printf("NP %3d | MLUPs %12d | perf %7.3f MLUPS/s\n", 1, (N * N), static_cast<double>(N * N) / maxdur / 1e6);
+  printf("NP %3d | LUPs %12d | perf %7.3f MLUPS/s\n", 1, (N * N), static_cast<double>(N * N) / maxdur / 1e6);
 
   // freeing everything
   CUDA_CALL(cudaFree(a));
