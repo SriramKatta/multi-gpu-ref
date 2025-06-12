@@ -13,7 +13,7 @@ CMakeUserPresets.json
 
 build*
 
-executable
+executable*
 simdata
 SLURM_OUT_FILES
 *olddata*
