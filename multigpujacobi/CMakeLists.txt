@@ -27,11 +27,8 @@ find_package(MPI REQUIRED)
 set(CMAKE_CUDA_ARCHITECTURES 80;86)
 set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
 
-if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Release)
-endif()
 
-find_package(MPI REQUIRED)
+find_package(CUDAToolkit REQUIRED)
 # Find NCCL
 if(NCCL_HOME)
   find_path(NCCL_INCLUDE_DIR
