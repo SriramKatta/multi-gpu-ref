@@ -9,5 +9,5 @@ endif()
 
 
 if(BUILD_NVSHMEM)
-    #add_subdirectory(nvshmem)
+    add_subdirectory(nvshmem)
 endif()
