@@ -19,6 +19,7 @@ SLURM_OUT_FILES
 *olddata*
 
 .vscode
+allimages*
 
 #likwid files
 .hostfile*
