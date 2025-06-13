@@ -62,7 +62,7 @@ int main(int argc, char *argv[])
   MPI_CALL(MPI_Bcast(&id, sizeof(id), MPI_BYTE, 0, MPI_COMM_WORLD));
   NCCL_CALL(ncclCommInitRank(&ncclcomm, nranks, id, rank));
 
-  // just to besafe
+  // just to be safe
   MPI_CALL(MPI_Barrier(MPI_COMM_WORLD));
 
   // just to simplyfy the program
@@ -161,7 +161,7 @@ int main(int argc, char *argv[])
   if (rank == 0)
   {
     // fill the performnace computation take max time
-    printf("NP %3d | LUPs %12d | perf %7.3f MLUPS/s\n", nranks, (N * N) , static_cast<double>(N * N) / maxdur / 1e6);
+    printf("NP %3d | LUPs %12d | perf %7.3f MLUPS/s\n", nranks, (N * N), static_cast<double>(N * N) / maxdur / 1e6);
   }
 
   // freeing everything
