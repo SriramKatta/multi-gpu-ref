@@ -18,7 +18,6 @@ support can't be determined. Define SKIP_CUDA_AWARENESS_CHECK to skip this check
 #endif
 #endif
 
-constexpr int maxIt = 1000;
 
 using real = double;
 

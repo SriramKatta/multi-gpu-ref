@@ -15,8 +15,6 @@
 #endif
 #endif
 
-constexpr int number_of_warmups = 10;
-constexpr int maxIt = 1000;
 
 using real = double;
 #define NCCL_REAL_TYPE ncclDouble

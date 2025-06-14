@@ -10,8 +10,6 @@
 using Time = std::chrono::high_resolution_clock;
 using mintime = std::nano;
 
-constexpr int number_of_warmups = 10;
-constexpr int maxIt = 1000;
 
 using real = double;
 #define MPI_REAL_TYPE MPI_DOUBLE
