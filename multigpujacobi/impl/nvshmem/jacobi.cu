@@ -2,14 +2,14 @@
 #include <stdlib.h>
 #include <cuda.h>
 #include <mpi.h>
-#include <math.h>
 #include <nvshmem.h>
 #include <nvshmemx.h>
-
+#include <math.h>
 #include <nvtx3/nvtx3.hpp>
+
 #include "utils.h"
 
-// TODO: comment out on my personal machine since it doesn't have cuda aware mpi :(
+// TODO: commented out since my personal machine doesn't have cuda aware mpi :(
 #ifndef SKIP_CUDA_AWARENESS_CHECK
 #include <mpi-ext.h>
 #if !defined(MPIX_CUDA_AWARE_SUPPORT) || !MPIX_CUDA_AWARE_SUPPORT
@@ -22,7 +22,6 @@ constexpr int number_of_warmups = 10;
 constexpr int maxIt = 1000;
 
 using real = double;
-#define NCCL_REAL_TYPE ncclDouble
 
 __global__ void initialize_boundaries(real *__restrict__ const a_new, real *__restrict__ const a,
                                       const real pi, const int offset, const int N, const int my_ny);
@@ -30,10 +29,9 @@ void launch_initialize_boundaries(real *__restrict__ const a_new, real *__restri
                                   const real pi, const int offset, const int N, const int my_ny);
 template <int BLOCK_DIM_X, int BLOCK_DIM_Y>
 __global__ void jacobi_kernel(real *__restrict__ const a_new, const real *__restrict__ const a,
-                              const int iy_start, const int iy_end, const int N);
+                              const int iy_start, const int iy_end, const int N, int top_pe, int bot_pe);
 void launch_jacobi_kernel(real *__restrict__ const a_new, const real *__restrict__ const a,
                           const int iy_start, const int iy_end, const int N, cudaStream_t stream);
-void Halo_exchange(real *a, real *a_new, int N, const int top, int iy_end, const int bottom, int iy_start, ncclComm_t, cudaStream_t, cudaStream_t);
 
 int main(int argc, char *argv[])
 {
@@ -46,24 +44,16 @@ int main(int argc, char *argv[])
     MPI_CALL(MPI_Comm_rank(MPI_COMM_WORLD, &rank));
     MPI_CALL(MPI_Comm_size(MPI_COMM_WORLD, &nranks));
   }
+  MPI_Comm comm = MPI_COMM_WORLD;
 
-  // important part of cuda aware mpi
-  {
-    CUDA_CALL(cudaGetDeviceCount(&num_devices));
-    CUDA_CALL(cudaSetDevice(rank % num_devices));
-    CUDA_CALL(cudaFree(0));
-  }
+  // all nvshmem from here
+  nvshmemx_init_attr_t attr;
+  attr.mpi_comm = &comm;
+  nvshmemx_init_attr(NVSHMEMX_INIT_WITH_MPI_COMM, &attr);
 
-  // pass the communication hadling to NCCL
-  ncclComm_t ncclcomm;
-  ncclUniqueId id;
-  if (rank == 0)
-    NCCL_CALL(ncclGetUniqueId(&id));
-  MPI_CALL(MPI_Bcast(&id, sizeof(id), MPI_BYTE, 0, MPI_COMM_WORLD));
-  NCCL_CALL(ncclCommInitRank(&ncclcomm, nranks, id, rank));
-
-  // just to be safe
-  MPI_CALL(MPI_Barrier(MPI_COMM_WORLD));
+  int mype_node;
+  mype_node = nvshmem_team_my_pe(NVSHMEMX_TEAM_NODE);
+  CUDA_CALL(cudaSetDevice(mype_node));
 
   // just to simplyfy the program
   int N = 1024;
@@ -80,34 +70,18 @@ int main(int argc, char *argv[])
   }
 
   // computing local chunk size
-  int chunk_size;
-  int chunk_size_low = (N - 2) / nranks;
-  int chunk_size_high = chunk_size_low + 1;
-  int num_ranks_low = nranks * chunk_size_low + nranks - (N - 2);
-  if (rank < num_ranks_low)
-    chunk_size = chunk_size_low;
-  else
-    chunk_size = chunk_size_high;
+  int chunk_size = rowsinrank(rank, nranks, N);
 
   // setting up data for each GPU
-  real *a;
-  real *a_new;
-  CUDA_CALL(cudaMalloc(&a, N * (chunk_size + 2) * sizeof(real)));
-  CUDA_CALL(cudaMemset(a, 0, N * (chunk_size + 2) * sizeof(real)));
-  CUDA_CALL(cudaMalloc(&a_new, N * (chunk_size + 2) * sizeof(real)));
-  CUDA_CALL(cudaMemset(a_new, 0, N * (chunk_size + 2) * sizeof(real)));
+  real *a = (real *)nvshmem_malloc(sizeof(real) * N * (chunk_size + 2));
+  real *a_new = (real *)nvshmem_malloc(sizeof(real) * N * (chunk_size + 2));
+  // clang-format off
+  CUDA_CALL(cudaMemset(a   , 0, N * (chunk_size + 2) * sizeof(real)));
+  CUDA_CALL(cudaMemset(a_new,0, N * (chunk_size + 2) * sizeof(real)));
+  // clang-format on
 
   // Calculate local domain boundaries
-  int iy_start_global; // My start index in the global array
-  if (rank < num_ranks_low)
-  {
-    iy_start_global = rank * chunk_size_low + 1;
-  }
-  else
-  {
-    iy_start_global =
-        num_ranks_low * chunk_size_low + (rank - num_ranks_low) * chunk_size_high + 1;
-  }
+  int iy_start_global = startrow(rank, nranks, N);
 
   int iy_start = 1;
   int iy_end = iy_start + chunk_size;
@@ -115,62 +89,39 @@ int main(int argc, char *argv[])
   launch_initialize_boundaries(a, a_new, M_PI, iy_start_global - 1, N, (chunk_size + 2));
   CUDA_CALL(cudaDeviceSynchronize());
 
-  int highpriority = 0, lowpriority = 0;
-  cudaStream_t inner_stream;
-  cudaStream_t top_stream;
-  cudaStream_t bottom_stream;
-  CUDA_CALL(cudaDeviceGetStreamPriorityRange(&lowpriority, &highpriority));
-  CUDA_CALL(cudaStreamCreateWithPriority(&inner_stream, cudaStreamDefault, lowpriority));
-  CUDA_CALL(cudaStreamCreateWithPriority(&top_stream, cudaStreamDefault, highpriority));
-  CUDA_CALL(cudaStreamCreateWithPriority(&bottom_stream, cudaStreamDefault, highpriority));
+  cudaStream_t compute_stream;
+  CUDA_CALL(cudaStreamCreate(&compute_stream));
 
-  const int top = (rank + nranks - 1) % nranks;
-  const int bottom = (rank + 1) % nranks;
+  const int top_pe = (rank + 1) % nranks;
+  const int bot_pe = (rank + nranks - 1) % nranks;
 
-  nvtxRangePushA("MPI_Warmup");
-  for (size_t i = 0; i < number_of_warmups; i++)
-  {
-    Halo_exchange(a_new, a, N, top, iy_end, bottom, iy_start, ncclcomm, top_stream, bottom_stream);
-    std::swap(a, a_new);
-  }
-  nvtxRangePop();
   MPI_CALL(MPI_Barrier(MPI_COMM_WORLD));
   CUDA_CALL(cudaDeviceSynchronize());
 
   double start = MPI_Wtime();
-  nvtxRangePushA("Full_loop");
   for (size_t it = 0; it < maxIt; ++it)
   {
     nvtx3::scoped_range loop{"Jacobi_Step"};
 
-    nvtxRangePushA("Apply_stencil");
-    launch_jacobi_kernel(a_new, a, iy_start, iy_start + 1, N, top_stream);
-    launch_jacobi_kernel(a_new, a, iy_end - 1, iy_end, N, bottom_stream);
-    launch_jacobi_kernel(a_new, a, iy_start + 1, iy_end - 1, N, inner_stream);
-    nvtxRangePop();
+    launch_jacobi_kernel(a_new, a, iy_start, iy_end, N, compute_stream);
 
-    CUDA_CALL(cudaStreamSynchronize(top_stream));
-    CUDA_CALL(cudaStreamSynchronize(bottom_stream));
     std::swap(a, a_new);
   }
-  nvtxRangePop();
-  double dur = MPI_Wtime() - start;
+  CUDA_CALL(cudaDeviceSynchronize());
+  double dur = (MPI_Wtime() - start) / maxIt;
   double maxdur = 0.0;
   MPI_CALL(MPI_Reduce(&dur, &maxdur, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD));
 
   if (rank == 0)
   {
-    // fill the performnace computation take max time
     printf("NP %3d | LUPs %12d | perf %7.3f MLUPS/s\n", nranks, (N * N), static_cast<double>(N * N) / maxdur / 1e6);
   }
 
   // freeing everything
-  CUDA_CALL(cudaFree(a));
-  CUDA_CALL(cudaFree(a_new));
-  CUDA_CALL(cudaStreamDestroy(inner_stream));
-  CUDA_CALL(cudaStreamDestroy(top_stream));
-  CUDA_CALL(cudaStreamDestroy(bottom_stream));
-  NCCL_CALL(ncclCommDestroy(ncclcomm));
+  nvshmem_free(a);
+  nvshmem_free(a_new);
+  CUDA_CALL(cudaStreamDestroy(compute_stream));
+  nvshmem_finalize();
   MPI_Finalize();
   return 0;
 }
@@ -199,19 +150,23 @@ void launch_jacobi_kernel(real *__restrict__ const a_new, const real *__restrict
                           const int iy_start, const int iy_end,
                           const int N, cudaStream_t stream)
 {
+  int mype = nvshmem_my_pe();
+  int npes = nvshmem_n_pes();
+  int top_pe = (mype + 1) % npes;
+  int bot_pe = (mype + npes - 1) % npes;
   constexpr int dim_block_x = 32;
   constexpr int dim_block_y = 32;
   dim3 thread_dim(dim_block_x, dim_block_x);
   dim3 block_dim((N + dim_block_x - 1) / dim_block_x,
                  ((iy_end - iy_start) + dim_block_y - 1) / dim_block_y);
   jacobi_kernel<dim_block_x, dim_block_y><<<block_dim, thread_dim, 0, stream>>>(
-      a_new, a, iy_start, iy_end, N);
+      a_new, a, iy_start, iy_end, N, top_pe, bot_pe);
   CUDA_CALL(cudaGetLastError());
 }
 
 template <int BLOCK_DIM_X, int BLOCK_DIM_Y>
 __global__ void jacobi_kernel(real *__restrict__ const a_new, const real *__restrict__ const a,
-                              const int iy_start, const int iy_end, const int N)
+                              const int iy_start, const int iy_end, const int N, int top_pe, int bot_pe)
 {
   int iy = blockIdx.y * blockDim.y + threadIdx.y + iy_start;
   int ix = blockIdx.x * blockDim.x + threadIdx.x + 1;
@@ -221,13 +176,14 @@ __global__ void jacobi_kernel(real *__restrict__ const a_new, const real *__rest
     const real new_val = 0.25 * (a[iy * N + ix + 1] + a[iy * N + ix - 1] +
                                  a[(iy + 1) * N + ix] + a[(iy - 1) * N + ix]);
     a_new[iy * N + ix] = new_val;
-    if (iy_start == iy)
+    // Halo exchange
+    if (iy == iy_start )
     {
-      nvshmem_float_p(a_new + top_iy * nx + ix, new_val, top_pe);
+      nvshmem_double_p(a_new + (iy * (N-1) + ix), new_val, bot_pe);
     }
-    if ((iy_end - 1) == iy)
+    if (iy == iy_end - 1 )
     {
-      nvshmem_float_p(a_new + bottom_iy * nx + ix, new_val, bottom_pe);
+      nvshmem_double_p(a_new  + ix, new_val, top_pe);
     }
   }
 }
