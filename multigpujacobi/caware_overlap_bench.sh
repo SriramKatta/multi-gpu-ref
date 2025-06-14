@@ -1,6 +1,7 @@
 #!/bin/bash -l
 #
 #SBATCH --output=./SLURM_OUT_FILES/%j_%x.out
+#SBATCH -J caware_bench_overlap
 #SBATCH --nodes=1
 #SBATCH --time=0:59:00
 #SBATCH --exclusive
@@ -18,7 +19,7 @@ module load openmpi/4.1.6-nvhpc23.7-cuda12
 module load likwid
 
 [ ! -d simdata ] && mkdir simdata
-resfile=./simdata/${SLURM_JOB_ID}_caware
+resfile=./simdata/${SLURM_JOB_ID}_caware_overlap
 
 perfexemain="./executable_perf/jacobi_caware_overlap"
 profexemain="./executable_prof/jacobi_caware_overlap"

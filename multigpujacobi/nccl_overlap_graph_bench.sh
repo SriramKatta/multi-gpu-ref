@@ -21,7 +21,7 @@ export NCCL_HOME=$NV_COMM_LIBS/nccl
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$NCCL_HOME/lib
 
 [ ! -d simdata ] && mkdir simdata
-resfile=./simdata/${SLURM_JOB_ID}_caware
+resfile=./simdata/${SLURM_JOB_ID}_nccl_overlap_graph
 
 perfexemain="./executable_perf/jacobi_NCCL_overlap_graph"
 profexemain="./executable_prof/jacobi_NCCL_overlap_graph"

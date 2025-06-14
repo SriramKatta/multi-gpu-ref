@@ -1,6 +1,7 @@
 #!/bin/bash -l
 #
 #SBATCH --output=./SLURM_OUT_FILES/%j_%x.out
+#SBATCH -J caware_bench
 #SBATCH --nodes=1
 #SBATCH --time=0:59:00
 #SBATCH --exclusive

@@ -30,7 +30,7 @@ export NVSHMEM_REMOTE_TRANSPORT=NONE
 export NVSHMEM_SYMMETRIC_SIZE=30G
 
 [ ! -d simdata ] && mkdir simdata
-resfile=./simdata/${SLURM_JOB_ID}_caware
+resfile=./simdata/${SLURM_JOB_ID}_nvshmem
 
 perfexemain="./executable_perf/jacobi_nvshmem"
 profexemain="./executable_prof/jacobi_nvshmem"

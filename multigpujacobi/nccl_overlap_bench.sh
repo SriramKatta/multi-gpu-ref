@@ -1,6 +1,7 @@
 #!/bin/bash -l
 #
 #SBATCH --output=./SLURM_OUT_FILES/%j_%x.out
+#SBATCH -J nccl_overlap_bench
 #SBATCH --nodes=1
 #SBATCH --time=0:59:00
 #SBATCH --exclusive
@@ -22,7 +23,7 @@ export NCCL_HOME=$NV_COMM_LIBS/nccl
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$NCCL_HOME/lib
 
 [ ! -d simdata ] && mkdir simdata
-resfile=./simdata/${SLURM_JOB_ID}_caware
+resfile=./simdata/${SLURM_JOB_ID}_nccl_overlap
 
 perfexemain="./executable_perf/jacobi_NCCL_overlap"
 profexemain="./executable_prof/jacobi_NCCL_overlap"

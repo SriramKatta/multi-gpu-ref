@@ -18,7 +18,6 @@ support can't be determined. Define SKIP_CUDA_AWARENESS_CHECK to skip this check
 #endif
 #endif
 
-constexpr int number_of_warmups = 10;
 constexpr int maxIt = 1000;
 
 using real = double;
@@ -38,7 +37,7 @@ int main(int argc, char *argv[])
   MPI_CALL(MPI_Init(&argc, &argv));
   int rank = 0;
   int nranks = 1;
-  int num_devices = 0;
+  
   // assumption is that we are only on single node but easily extendable using MPI_Comm_split_type(.... MPI_COMM_TYPE_SHARED...
   {
     MPI_CALL(MPI_Comm_rank(MPI_COMM_WORLD, &rank));
@@ -91,9 +90,6 @@ int main(int argc, char *argv[])
 
   cudaStream_t compute_stream;
   CUDA_CALL(cudaStreamCreate(&compute_stream));
-
-  const int top_pe = (rank + 1) % nranks;
-  const int bot_pe = (rank + nranks - 1) % nranks;
 
   MPI_CALL(MPI_Barrier(MPI_COMM_WORLD));
   CUDA_CALL(cudaDeviceSynchronize());
