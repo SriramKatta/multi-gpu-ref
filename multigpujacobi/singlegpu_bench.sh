@@ -15,7 +15,7 @@ module load cuda nvhpc
 resfile=./simdata/${SLURM_JOB_ID}_singlegpu
 
 for i in {1..30}; do
-    srun ./executable_perf/jacobi_single $(echo "1024*$i" | bc) | tee -a $resfile
+    srun ./executable_perf/jacobi_single $(echo "1024*$i" | bc) | grep "NP" | tee -a $resfile
 done
 
 nsys profile --stats=true -o ./simdata/${SLURM_JOB_ID}_jacobi_single ./executable_prof/jacobi_single 2048

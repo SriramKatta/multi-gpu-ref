@@ -43,11 +43,11 @@ cp $profexemain $profexe
 
 for np in $(seq 1 $gpgpucount); do
     echo "$np of $gpgpucount"
-    likwid-mpirun -np $np -nperdomain M:1 $perfexe 40960 | tee -a $resfile
+    likwid-mpirun -np $np -nperdomain M:1 $perfexe 40960 | grep "NP" | tee -a $resfile
 done
 
 nsys profile --trace=mpi,cuda,nvtx --force-overwrite true --stats=true \
-    -o ./simdata/${SLURM_JOB_ID}_jacobi_NCCL_overlap \
+    -o ./simdata/${SLURM_JOB_ID}_jacobi_nvs \
     likwid-mpirun -np $gpgpucount -nperdomain M:1 \
     $profexe 4096
 

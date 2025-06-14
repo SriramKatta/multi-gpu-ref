@@ -34,7 +34,7 @@ cp $profexemain $profexe
 
 for np in $(seq 1 $gpgpucount); do
     echo "$np of $gpgpucount"
-    likwid-mpirun -np $np -nperdomain M:1 $perfexe 40960 | tee -a $resfile
+    likwid-mpirun -np $np -nperdomain M:1 $perfexe 40960 | grep "NP" | tee -a $resfile
 done
 
 nsys profile --trace=mpi,cuda,nvtx --cuda-graph-trace=node --force-overwrite true --stats=true \
