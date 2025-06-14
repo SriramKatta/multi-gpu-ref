@@ -106,6 +106,8 @@ int main(int argc, char *argv[])
   CUDA_CALL(cudaDeviceGetStreamPriorityRange(&lowpriority, &highpriority));
   CUDA_CALL(cudaStreamCreateWithPriority(&inner_stream, cudaStreamDefault, lowpriority));
   CUDA_CALL(cudaStreamCreateWithPriority(&edge_stream, cudaStreamDefault, highpriority));
+  cudaEvent_t edge_done;
+  CUDA_CALL(cudaEventCreateWithFlags(&edge_done, cudaEventDisableTiming));
 
   const int top_pe = (rank + 1) % nranks;
   const int bot_pe = (rank + nranks - 1) % nranks;
@@ -133,9 +135,10 @@ int main(int argc, char *argv[])
 
     nvtxRangePushA("HALO_Exchange");
     Halo_exchange(a_new, a, N, top_pe, iy_end, bot_pe, iy_start, ncclcomm, edge_stream);
+    cudaEventRecord(edge_done, edge_stream);
     nvtxRangePop();
 
-    CUDA_CALL(cudaStreamSynchronize(inner_stream));
+    CUDA_CALL(cudaStreamWaitEvent(inner_stream, edge_done));
     std::swap(a, a_new);
   }
   CUDA_CALL(cudaDeviceSynchronize());
@@ -151,6 +154,7 @@ int main(int argc, char *argv[])
   // freeing everything
   CUDA_CALL(cudaFree(a));
   CUDA_CALL(cudaFree(a_new));
+  CUDA_CALL(cudaEventDestroy(edge_done));
   CUDA_CALL(cudaStreamDestroy(inner_stream));
   CUDA_CALL(cudaStreamDestroy(edge_stream));
   NCCL_CALL(ncclCommDestroy(ncclcomm));
