@@ -94,7 +94,9 @@ int main(int argc, char *argv[])
   CUDA_CALL(cudaDeviceGetStreamPriorityRange(&lowpriority, &highpriority));
   CUDA_CALL(cudaStreamCreateWithPriority(&inner_stream, cudaStreamDefault, lowpriority));
   CUDA_CALL(cudaStreamCreateWithPriority(&edge_stream, cudaStreamDefault, highpriority));
-  
+  cudaEvent_t edge_done;
+  CUDA_CALL(cudaEventCreateWithFlags(&edge_done, cudaEventDisableTiming));
+
   const int top_pe = (rank + 1) % nranks;
   const int bot_pe = (rank + nranks - 1) % nranks;
 
@@ -117,17 +119,16 @@ int main(int argc, char *argv[])
     launch_jacobi_kernel(a_new, a, iy_start + 1, iy_end - 1, N, inner_stream);
     launch_jacobi_kernel(a_new, a, iy_start, iy_start + 1, N, edge_stream);
     launch_jacobi_kernel(a_new, a, iy_end - 1, iy_end, N, edge_stream);
-    CUDA_CALL(cudaStreamSynchronize(edge_stream));
+    CUDA_CALL(cudaEventRecord(edge_done, edge_stream));
     nvtxRangePop();
-
+    CUDA_CALL(cudaEventSynchronize(edge_done));
     nvtxRangePushA("HALO_Exchange");
     Halo_exchange(a_new, a, N, top_pe, iy_end, bot_pe, iy_start);
-    CUDA_CALL(cudaStreamSynchronize(inner_stream));
     nvtxRangePop();
-    
+    cudaStreamWaitEvent(inner_stream, edge_done, 0);
     std::swap(a, a_new);
   }
-  CUDA_CALL(cudaDeviceSynchronize());
+  CUDA_CALL(cudaStreamSynchronize(inner_stream));
   double dur = (MPI_Wtime() - start) / maxIt;
   double maxdur = 0.0;
   MPI_CALL(MPI_Reduce(&dur, &maxdur, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD));

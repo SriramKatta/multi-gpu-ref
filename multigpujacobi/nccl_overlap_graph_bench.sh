@@ -37,7 +37,7 @@ for np in $(seq 1 $gpgpucount); do
     likwid-mpirun -np $np -nperdomain M:1 $perfexe 40960 | tee -a $resfile
 done
 
-nsys profile --trace=mpi,cuda,nvtx --cuda-graph-trace=node --force-overwrite true \
+nsys profile --trace=mpi,cuda,nvtx --cuda-graph-trace=node --force-overwrite true --stats=true \
     -o ./simdata/${SLURM_JOB_ID}_jacobi_NCCL_overlap_graph \
     likwid-mpirun -np $gpgpucount -nperdomain M:1 \
     $profexe 4096

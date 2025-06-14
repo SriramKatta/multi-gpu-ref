@@ -72,6 +72,8 @@ int main(int argc, char *argv[])
   CUDA_CALL(cudaDeviceGetStreamPriorityRange(&lowprio, &highprio));
   CUDA_CALL(cudaStreamCreateWithPriority(&inner_stream, cudaStreamDefault, lowprio));
   CUDA_CALL(cudaStreamCreateWithPriority(&edge_stream, cudaStreamDefault, highprio));
+  cudaEvent_t edge_done;
+  CUDA_CALL(cudaEventCreateWithFlags(&edge_done, cudaEventDisableTiming));
 
   CUDA_CALL(cudaDeviceSynchronize());
 
@@ -91,12 +93,11 @@ int main(int argc, char *argv[])
     CUDA_CALL(cudaMemcpyAsync(a_new + (top * N), a_new + ((bot + 1) * N), N * sizeof(real), cudaMemcpyDeviceToDevice, edge_stream));
     CUDA_CALL(cudaMemcpyAsync(a_new + (bot * N), a_new + ((top - 1) * N), N * sizeof(real), cudaMemcpyDeviceToDevice, edge_stream));
     nvtxRangePop();
-    CUDA_CALL(cudaStreamSynchronize(inner_stream));
-    CUDA_CALL(cudaStreamSynchronize(edge_stream));
+    CUDA_CALL(cudaEventRecord(edge_done, edge_stream));
+    CUDA_CALL(cudaStreamWaitEvent(inner_stream, edge_done, 0));
 
     std::swap(a, a_new);
   }
-
   CUDA_CALL(cudaDeviceSynchronize());
   auto end = Time::now();
   double maxdur = std::chrono::duration<double, mintime>(end - start).count() / mintime::den / maxIt;
@@ -106,8 +107,8 @@ int main(int argc, char *argv[])
   // freeing everything
   CUDA_CALL(cudaFree(a));
   CUDA_CALL(cudaFree(a_new));
+  CUDA_CALL(cudaEventDestroy(edge_done));
   CUDA_CALL(cudaStreamDestroy(inner_stream));
-
   return 0;
 }
 
