@@ -15,9 +15,9 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$NVSHMEM_HOME/lib
 
 
 
-cmake -S . -B build -DNCCL_HOME=$NCCL_HOME -DNVSHMEM_HOME=$NVSHMEM_HOME
+cmake -S . -B build -DNCCL_HOME=$NCCL_HOME -DNVSHMEM_HOME=$NVSHMEM_HOME -DNVTX_OFF=ON
 cmake --build build -j
-rm ./build/CMakeCache.txt 
+
 cmake -S . -B build -DNCCL_HOME=$NCCL_HOME -DNVSHMEM_HOME=$NVSHMEM_HOME -DNVTX_OFF=OFF
 cmake --build build -j
 
